@@ -5,7 +5,7 @@
 >
 > Altri progetti di elettronica, Arduino, ESP32, Home Assistant e stampa 3D su **[www.emgi.it](https://www.emgi.it)**
 
-![Monitor dei consumi su barra DIN con ESP32 e Shelly EM](immagini/cover-monitor-shelly-esp32.png)
+![Monitor dei consumi su barra DIN con ESP32 e Shelly EM](immagini/copertina-3d.jpg)
 
 Un **ESP32** con display **OLED SH1106 1,3"** dentro un contenitore da **barra DIN da 4 moduli** stampato in 3D, che interroga lo **Shelly EM** direttamente in rete locale, **senza Home Assistant** in mezzo. Mostra nel quadro elettrico la potenza assorbita in tempo reale, la tensione di rete, tiene lo storico dei kWh e suona quando si supera la soglia.
 
