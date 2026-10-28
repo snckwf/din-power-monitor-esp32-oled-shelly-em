@@ -1,68 +1,68 @@
 /* =====================================================================
-   monitor_potenza_shelly.ino  -  v1
-   Monitor consumi che legge DIRETTAMENTE uno Shelly EM (Gen1) in rete locale,
-   senza Home Assistant. Display OLED SH1106 1.3" 128x64 I2C + ESP32 DevKit 30 pin.
-   Stesso hardware e stesso contenitore DIN del progetto monitor_potenza_din (v3, HA).
+   shelly_power_monitor.ino  -  v1
+   Power monitor that reads a Shelly EM (Gen1) DIRECTLY on the local network,
+   without Home Assistant. SH1106 1.3" 128x64 I2C OLED display + 30-pin ESP32 DevKit.
+   Same hardware and same DIN enclosure as the din_power_monitor project (v3, HA).
 
-   FUNZIONI
-     - Potenza istantanea di totale / ramo 1 / ramo 2, letta dallo Shelly ogni secondo
-       (GET http://<shelly>/status, una sola richiesta per ciclo)
-     - Tensione di rete e fattore di potenza dei due canali
-     - Display a 3 pagine che ruotano automaticamente ogni 5 s:
-         1) potenza totale con cifre grandi + barra 0-4 kW
-         2) i due rami (con la tensione di rete nell'intestazione)
-         3) energia di oggi e del mese + picco giornaliero
-     - Buzzer passivo GPIO 27: sirena bitonale continua sopra soglia;
-       in allarme il display si blocca sulla pagina 1 e lampeggia in negativo
-     - Picco massimo giornaliero (valore e ora)
-     - Storico kWh: 31 giorni + 12 mesi, salvato in flash (LittleFS),
-       calcolato per differenza dai contatori cumulativi dello Shelly (Wh)
-     - Pagina web su http://monitor-potenza-shelly.local  (o http://IP)
-       con valori live, grafici a barre giornalieri/mensili e regolazione
-       della soglia di allarme senza ricompilare
-     - Aggiornamento firmware OTA
-     - Data e ora prese dallo Shelly (campo unixtime di /status), con NTP
-       come riserva se c'e' Internet. Ora legale gestita in automatico.
+   FEATURES
+     - Instantaneous power of total / branch 1 / branch 2, read from the Shelly every second
+       (GET http://<shelly>/status, a single request per cycle)
+     - Mains voltage and power factor of the two channels
+     - 3-page display rotating automatically every 5 s:
+         1) total power in large digits + 0-4 kW bar
+         2) the two branches (with the mains voltage in the header)
+         3) today's and this month's energy + daily peak
+     - Passive buzzer on GPIO 27: continuous two-tone siren above the threshold;
+       during an alarm the display stays on page 1 and flashes in negative
+     - Daily maximum peak (value and time)
+     - kWh history: 31 days + 12 months, stored in flash (LittleFS),
+       calculated as the difference of the Shelly cumulative counters (Wh)
+     - Web page at http://shelly-power-monitor.local  (or http://IP)
+       with live values, daily/monthly bar charts and adjustment of the
+       alarm threshold without recompiling
+     - OTA firmware update
+     - Date and time taken from the Shelly (unixtime field of /status), with NTP
+       as a fallback when there is Internet access. Daylight saving time handled automatically.
 
-   SHELLY EM GEN1 (tipo SHEM) - cosa si legge da /status
-     emeters[n].power     W istantanei del canale n
-     emeters[n].voltage   V di rete
-     emeters[n].pf        fattore di potenza
-     emeters[n].is_valid  false se la pinza non e' collegata / lettura non valida
-     emeters[n].total     Wh cumulativi del canale n
-     unixtime             ora UTC dello Shelly (0 se lo Shelly non e' sincronizzato)
-   Gli Shelly Gen2/Gen3 (Pro EM, EM Gen3) usano invece le API RPC: questo sketch
-   e' scritto per il Gen1, quello con l'interfaccia web "vecchio stile".
+   SHELLY EM GEN1 (type SHEM) - what is read from /status
+     emeters[n].power     instantaneous W of channel n
+     emeters[n].voltage   mains V
+     emeters[n].pf        power factor
+     emeters[n].is_valid  false if the clamp is not connected / reading not valid
+     emeters[n].total     cumulative Wh of channel n
+     unixtime             Shelly UTC time (0 if the Shelly is not synchronised)
+   Shelly Gen2/Gen3 devices (Pro EM, EM Gen3) use the RPC API instead: this sketch
+   is written for Gen1, the one with the "old style" web interface.
 
-   COLLEGAMENTI  (4 fili, saldati direttamente ai pad del display)
-     Guardando il display DA DAVANTI, i 4 pad in alto da sinistra a destra sono:
-         VSS(GND) - VDD - SCK - SDA          (passo 2.54)
-     Dal retro l'ordine e' invertito: SDA - SCK - VDD - VSS.
+   WIRING  (4 wires, soldered directly to the display pads)
+     Looking at the display FROM THE FRONT, the 4 pads at the top from left to right are:
+         VSS(GND) - VDD - SCK - SDA          (2.54 pitch)
+     From the back the order is reversed: SDA - SCK - VDD - VSS.
 
      Display SH1106     ESP32
      ---------------------------------
      VSS  (GND) ->      GND
-     VDD        ->      3V3     (il modulo ha il regolatore, va bene anche 5V)
+     VDD        ->      3V3     (the module has a regulator, 5V also works)
      SCK  (SCL) ->      GPIO 22
      SDA        ->      GPIO 21
 
-     Buzzer passivo:    + -> GPIO 27      - -> GND
+     Passive buzzer:    + -> GPIO 27      - -> GND
 
-     NOTA: i moduli SH1106 hanno quasi sempre indirizzo I2C 0x3C.
-     Se il tuo ha il ponticello sul 0x3D cambia OLED_ADDR qui sotto.
+     NOTE: SH1106 modules almost always use I2C address 0x3C.
+     If yours has the jumper set to 0x3D, change OLED_ADDR below.
 
-   LIBRERIE (Gestore librerie di Arduino IDE)
-     - "U8g2" di oliver (olikraus)  >= 2.34
-     (Wire, WiFi, HTTPClient, WebServer, ESPmDNS, LittleFS e ArduinoOTA sono nel core ESP32)
+   LIBRARIES (Arduino IDE Library Manager)
+     - "U8g2" by oliver (olikraus)  >= 2.34
+     (Wire, WiFi, HTTPClient, WebServer, ESPmDNS, LittleFS and ArduinoOTA are part of the ESP32 core)
 
-   IMPOSTAZIONI ARDUINO IDE
-     Scheda: ESP32 Dev Module - Flash 4MB
+   ARDUINO IDE SETTINGS
+     Board: ESP32 Dev Module - Flash 4MB
      Partition Scheme: "Default 4MB with spiffs (1.2MB APP/1.5MB SPIFFS)"
-     (serve sia per l'OTA sia per LittleFS)
+     (needed both for OTA and for LittleFS)
 
-   AGGIORNAMENTO OTA
-     Primo caricamento via USB. Dai successivi:
-     Strumenti -> Porta -> "monitor-potenza-shelly" (porta di rete).
+   OTA UPDATE
+     First upload over USB. From then on:
+     Tools -> Port -> "shelly-power-monitor" (network port).
    ===================================================================== */
 
 #include <WiFi.h>
@@ -77,89 +77,89 @@
 #include <time.h>
 #include <sys/time.h>
 
-// ============================ CONFIGURAZIONE ==========================
-#define WIFI_SSID       "NOME_DELLA_TUA_RETE_WIFI"
-#define WIFI_PASSWORD   "LA_TUA_PASSWORD_WIFI"
+// ============================ CONFIGURATION ==========================
+#define WIFI_SSID       "YOUR_WIFI_NETWORK_NAME"
+#define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
 
-#define SHELLY_HOST     "192.168.1.50"      // IP dello Shelly EM (meglio se riservato nel router)
-#define SHELLY_USER     ""                // solo se nello Shelly e' attivo "Restrict login"
+#define SHELLY_HOST     "192.168.1.50"      // Shelly EM IP (better if reserved in the router)
+#define SHELLY_USER     ""                // only if "Restrict login" is enabled on the Shelly
 #define SHELLY_PASS     ""
 
-#define CANALE_1        0                 // indice di emeters[] del primo ramo
-#define CANALE_2        1                 // indice di emeters[] del secondo ramo
-#define USA_CANALE_2    1                 // 0 se hai una sola pinza
-#define NOME_1          "Casa"            // nomi dei rami (display e pagina web)
-#define NOME_2          "Cantina"
+#define CANALE_1        0                 // emeters[] index of the first branch
+#define CANALE_2        1                 // emeters[] index of the second branch
+#define USA_CANALE_2    1                 // 0 if you have only one clamp
+#define NOME_1          "House"           // branch names (display and web page)
+#define NOME_2          "Cellar"
 
-#define FUSO_ORARIO     "CET-1CEST,M3.5.0,M10.5.0/3"   // Italia, con ora legale
-#define NTP_SERVER      "pool.ntp.org"                 // riserva se lo Shelly non ha l'ora
+#define FUSO_ORARIO     "CET-1CEST,M3.5.0,M10.5.0/3"   // Italy, with daylight saving time (change for your country)
+#define NTP_SERVER      "pool.ntp.org"                 // fallback if the Shelly has no time
 
-#define OTA_HOSTNAME    "monitor-potenza-shelly"       // anche nome mDNS del sito
-#define OTA_PASSWORD    "LA_TUA_PASSWORD_OTA"
+#define OTA_HOSTNAME    "shelly-power-monitor"         // also the mDNS name of the web page
+#define OTA_PASSWORD    "YOUR_OTA_PASSWORD"
 // ======================================================================
 
 // ---------------------------- PIN -------------------------------------
 #define PIN_SDA     21
 #define PIN_SCL     22
-#define OLED_ADDR   0x3C     // 0x3D su alcuni cloni
+#define OLED_ADDR   0x3C     // 0x3D on some clones
 #define I2C_HZ      400000
 #define PIN_BUZZER  27
 
-// -------------------------- PARAMETRI ---------------------------------
-#define ROTAZIONE_OLED  U8G2_R0   // U8G2_R2 se monti il display capovolto
-#define SOGLIA_DEFAULT   3100.0  // soglia allarme iniziale (poi regolabile dal web)
-#define ISTERESI          100.0  // il buzzer tace sotto (soglia - isteresi)
-#define BARRA_FONDO      4000.0  // fondo scala della barra grafica
-#define PERIODO_LETTURA   1000   // ms tra due letture dello Shelly
-#define PERIODO_PAGINA    5000   // ms di permanenza su ogni pagina
-#define PERIODO_SCHERMO    500   // ms tra due ridisegni del display
-#define PERIODO_SALVA   1800000  // ms tra due salvataggi periodici (30 min)
-#define TIMEOUT_HTTP      1500   // ms timeout richiesta HTTP allo Shelly
-#define ERRORI_OFFLINE       3   // letture fallite di fila prima di andare OFFLINE
+// -------------------------- PARAMETERS --------------------------------
+#define ROTAZIONE_OLED  U8G2_R0   // U8G2_R2 if the display is mounted upside down
+#define SOGLIA_DEFAULT   3100.0  // initial alarm threshold (then adjustable from the web page)
+#define ISTERESI          100.0  // the buzzer stops below (threshold - hysteresis)
+#define BARRA_FONDO      4000.0  // full scale of the bar graph
+#define PERIODO_LETTURA   1000   // ms between two Shelly readings
+#define PERIODO_PAGINA    5000   // ms spent on each page
+#define PERIODO_SCHERMO    500   // ms between two display redraws
+#define PERIODO_SALVA   1800000  // ms between two periodic saves (30 min)
+#define TIMEOUT_HTTP      1500   // ms timeout of the HTTP request to the Shelly
+#define ERRORI_OFFLINE       3   // consecutive failed readings before going OFFLINE
 #define N_PAGINE             3
 
-#define N_GIORNI  31             // giorni di storico
-#define N_MESI    12             // mesi di storico
+#define N_GIORNI  31             // days of history
+#define N_MESI    12             // months of history
 #define FILE_DATI "/consumi.bin"
 #define MAGIC     0x4D505331UL   // "MPS1"
-#define EPOCA_MIN 1700000000UL   // sotto questo valore l'ora non e' valida
+#define EPOCA_MIN 1700000000UL   // below this value the time is not valid
 
-// Buzzer: sirena bitonale
+// Buzzer: two-tone siren
 #define TONO_A      800
 #define TONO_B     1250
 #define DURATA_NOTA 280
 #define CANALE_LEDC   0
 
-// ----------------------- AREE DELLO SCHERMO ---------------------------
+// ----------------------- SCREEN AREAS ---------------------------------
 #define W_SCHERMO  128
 #define H_SCHERMO   64
-#define Y_TESTA      8     // baseline della riga di intestazione
-#define Y_LINEA     11     // riga separatrice
+#define Y_TESTA      8     // baseline of the header row
+#define Y_LINEA     11     // separator line
 #define BARRA_X      0
 #define BARRA_Y     50
 #define BARRA_W    128
 #define BARRA_H     13
 
 // --------------------------- FONT -------------------------------------
-#define F_MINI    u8g2_font_5x8_tf          // riga di stato, note
-#define F_PICCOLO u8g2_font_6x12_tf         // etichette
-#define F_MEDIO   u8g2_font_logisoso16_tn   // valori medi (solo cifre)
-#define F_GRANDE  u8g2_font_logisoso28_tn   // valore principale (solo cifre)
+#define F_MINI    u8g2_font_5x8_tf          // status row, notes
+#define F_PICCOLO u8g2_font_6x12_tf         // labels
+#define F_MEDIO   u8g2_font_logisoso16_tn   // medium values (digits only)
+#define F_GRANDE  u8g2_font_logisoso28_tn   // main value (digits only)
 
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(ROTAZIONE_OLED, U8X8_PIN_NONE);
 WebServer server(80);
 
-// ======================== DATI PERSISTENTI ============================
+// ======================== PERSISTENT DATA =============================
 struct VoceGiorno { int16_t anno; uint8_t mese; uint8_t giorno; float casa; float cant; };
 struct VoceMese   { int16_t anno; uint8_t mese;                 float casa; float cant; };
 
 struct Dati {
   uint32_t   magic;
-  float      soglia;                 // soglia allarme in W
+  float      soglia;                 // alarm threshold in W
   int16_t    annoCorr; uint8_t meseCorr; uint8_t giornoCorr;
-  double     baseCasaG, baseCantG;   // contatori a inizio giornata (kWh)
-  double     baseCasaM, baseCantM;   // contatori a inizio mese (kWh)
-  float      picco;                  // picco W della giornata
+  double     baseCasaG, baseCantG;   // counters at the start of the day (kWh)
+  double     baseCasaM, baseCantM;   // counters at the start of the month (kWh)
+  float      picco;                  // peak W of the day
   char       piccoOra[6];            // "HH:MM"
   uint8_t    nGiorni;
   uint8_t    nMesi;
@@ -168,22 +168,22 @@ struct Dati {
 };
 Dati dati;
 
-// un canale dello Shelly EM (dichiarata qui in alto per i prototipi automatici di Arduino)
+// a Shelly EM channel (declared up here because of Arduino's automatic prototypes)
 struct Canale {
-  bool   ok;        // pinza presente e lettura valida
-  float  w;         // W istantanei
-  float  v;         // V di rete
-  float  pf;        // fattore di potenza
-  double kwh;       // contatore cumulativo in kWh
+  bool   ok;        // clamp present and reading valid
+  float  w;         // instantaneous W
+  float  v;         // mains V
+  float  pf;        // power factor
+  double kwh;       // cumulative counter in kWh
 };
 
-// ----------------------------- STATO ----------------------------------
-float  wTotale = NAN, wCasa = NAN, wCantina = NAN;   // ramo 1 = "casa", ramo 2 = "cantina"
+// ----------------------------- STATE ----------------------------------
+float  wTotale = NAN, wCasa = NAN, wCantina = NAN;   // branch 1 = "house", branch 2 = "cellar"
 float  tensione = NAN, pf1 = NAN, pf2 = NAN;
-double kCasa   = NAN, kCantina = NAN;                // contatori cumulativi in kWh
+double kCasa   = NAN, kCantina = NAN;                // cumulative counters in kWh
 char   oraStr[6]   = "--:--";
 char   dataStr[11] = "----------";
-char   nomeDisp1[12], nomeDisp2[12];                 // nomi in maiuscolo per l'OLED
+char   nomeDisp1[12], nomeDisp2[12];                 // upper-case names for the OLED
 
 bool datiValidi = false;
 uint8_t erroriDiFila = ERRORI_OFFLINE;
@@ -228,7 +228,7 @@ void gestisciBuzzer() {
 }
 
 // ======================================================================
-//  STORICO SU FLASH
+//  HISTORY IN FLASH
 // ======================================================================
 void datiDefault() {
   memset(&dati, 0, sizeof(dati));
@@ -239,27 +239,27 @@ void datiDefault() {
 
 void salvaDati() {
   File f = LittleFS.open(FILE_DATI, "w");
-  if (!f) { Serial.println("[FS] scrittura fallita"); return; }
+  if (!f) { Serial.println("[FS] write failed"); return; }
   f.write((uint8_t*)&dati, sizeof(dati));
   f.close();
   tUltimoSalva = millis();
-  Serial.println("[FS] dati salvati");
+  Serial.println("[FS] data saved");
 }
 
 void caricaDati() {
-  if (!LittleFS.begin(true)) { Serial.println("[FS] mount fallito"); datiDefault(); return; }
+  if (!LittleFS.begin(true)) { Serial.println("[FS] mount failed"); datiDefault(); return; }
   File f = LittleFS.open(FILE_DATI, "r");
   if (!f || f.size() != sizeof(dati)) {
     if (f) f.close();
-    Serial.println("[FS] nessun archivio valido, ne creo uno nuovo");
+    Serial.println("[FS] no valid archive, creating a new one");
     datiDefault();
     return;
   }
   f.read((uint8_t*)&dati, sizeof(dati));
   f.close();
-  if (dati.magic != MAGIC) { Serial.println("[FS] archivio incompatibile"); datiDefault(); return; }
+  if (dati.magic != MAGIC) { Serial.println("[FS] incompatible archive"); datiDefault(); return; }
   if (dati.soglia < 500 || dati.soglia > 20000) dati.soglia = SOGLIA_DEFAULT;
-  Serial.printf("[FS] archivio ok: %u giorni, %u mesi, soglia %.0f W\n",
+  Serial.printf("[FS] archive ok: %u days, %u months, threshold %.0f W\n",
                 dati.nGiorni, dati.nMesi, dati.soglia);
 }
 
@@ -284,12 +284,12 @@ float kwhOggiCant() { return (isnan(kCantina)) ? 0 : (float)(kCantina - dati.bas
 float kwhMeseCasa() { return (isnan(kCasa))    ? 0 : (float)(kCasa    - dati.baseCasaM); }
 float kwhMeseCant() { return (isnan(kCantina)) ? 0 : (float)(kCantina - dati.baseCantM); }
 
-// chiude giorno/mese quando cambia la data e riparte con nuove basi
+// closes the day/month when the date changes and restarts from new baselines
 void aggiornaCalendario(int16_t a, uint8_t m, uint8_t g) {
   if (a < 2020) return;
   bool salva = false;
 
-  // primo avvio in assoluto
+  // very first start
   if (dati.annoCorr == 0) {
     dati.annoCorr = a; dati.meseCorr = m; dati.giornoCorr = g;
     dati.baseCasaG = dati.baseCasaM = isnan(kCasa)    ? 0 : kCasa;
@@ -299,7 +299,7 @@ void aggiornaCalendario(int16_t a, uint8_t m, uint8_t g) {
     return;
   }
 
-  // cambio giorno
+  // day change
   if (a != dati.annoCorr || m != dati.meseCorr || g != dati.giornoCorr) {
     aggiungiGiorno(dati.annoCorr, dati.meseCorr, dati.giornoCorr,
                    kwhOggiCasa(), kwhOggiCant());
@@ -308,7 +308,7 @@ void aggiornaCalendario(int16_t a, uint8_t m, uint8_t g) {
     dati.picco = 0; strcpy(dati.piccoOra, "--:--");
     salva = true;
 
-    // cambio mese
+    // month change
     if (a != dati.annoCorr || m != dati.meseCorr) {
       aggiungiMese(dati.annoCorr, dati.meseCorr, kwhMeseCasa(), kwhMeseCant());
       dati.baseCasaM = isnan(kCasa)    ? dati.baseCasaM : kCasa;
@@ -317,7 +317,7 @@ void aggiornaCalendario(int16_t a, uint8_t m, uint8_t g) {
     dati.annoCorr = a; dati.meseCorr = m; dati.giornoCorr = g;
   }
 
-  // il contatore dello Shelly e' ripartito da zero (reset, sostituzione, aggiornamento)
+  // the Shelly counter has restarted from zero (reset, replacement, update)
   if (!isnan(kCasa) && kCasa + 0.001 < dati.baseCasaG) { dati.baseCasaG = kCasa; dati.baseCasaM = kCasa; salva = true; }
   if (!isnan(kCantina) && kCantina + 0.001 < dati.baseCantG) { dati.baseCantG = kCantina; dati.baseCantM = kCantina; salva = true; }
 
@@ -325,23 +325,23 @@ void aggiornaCalendario(int16_t a, uint8_t m, uint8_t g) {
 }
 
 // ======================================================================
-//  OROLOGIO  (ora dallo Shelly, NTP di riserva)
+//  CLOCK  (time from the Shelly, NTP as fallback)
 // ======================================================================
 bool oraValida() { return time(nullptr) > (time_t)EPOCA_MIN; }
 
-// rimette l'orologio interno sull'ora dello Shelly se si discosta piu' di 30 s
+// resets the internal clock to the Shelly time if it differs by more than 30 s
 void sincronizzaDaShelly(uint32_t unixtime) {
-  if (unixtime < EPOCA_MIN) return;               // lo Shelly non ha ancora l'ora
+  if (unixtime < EPOCA_MIN) return;               // the Shelly does not have the time yet
   time_t adesso = time(nullptr);
   long scarto = (long)adesso - (long)unixtime;
   if (!oraValida() || scarto > 30 || scarto < -30) {
     struct timeval tv = { (time_t)unixtime, 0 };
     settimeofday(&tv, nullptr);
-    Serial.printf("[ORA] presa dallo Shelly (scarto %ld s)\n", oraValida() ? scarto : 0L);
+    Serial.printf("[TIME] taken from the Shelly (offset %ld s)\n", oraValida() ? scarto : 0L);
   }
 }
 
-// aggiorna le stringhe di data/ora e restituisce la data locale
+// updates the date/time strings and returns the local date
 bool aggiornaOrologio(int16_t* a, uint8_t* m, uint8_t* g) {
   if (!oraValida()) { strcpy(oraStr, "--:--"); return false; }
   time_t t = time(nullptr);
@@ -356,11 +356,11 @@ bool aggiornaOrologio(int16_t* a, uint8_t* m, uint8_t* g) {
 }
 
 // ======================================================================
-//  UTILITA' GRAFICHE
+//  GRAPHICS UTILITIES
 // ======================================================================
 
-// Formatta una potenza per il font "solo cifre": sotto 10 kW l'intero in W,
-// sopra i kW con un decimale. L'unita' va stampata a parte con un font di testo.
+// Formats a power value for the "digits only" font: below 10 kW whole watts,
+// above that kW with one decimal. The unit is printed separately with a text font.
 void formattaW(float w, char* out, size_t n, const char** unita) {
   if (isnan(w)) { snprintf(out, n, "----"); *unita = "W"; return; }
   if (fabs(w) >= 10000) { snprintf(out, n, "%.1f", w / 1000.0); *unita = "kW"; }
@@ -383,7 +383,7 @@ void maiuscolo(const char* da, char* a, size_t n) {
   a[i] = 0;
 }
 
-// intestazione comune: titolo a sinistra, orologio a destra, pallini pagina
+// common header: title on the left, clock on the right, page dots
 void intestazione(const char* titolo, bool pallini) {
   u8g2.setFont(F_MINI);
   u8g2.drawStr(0, Y_TESTA, titolo);
@@ -398,7 +398,7 @@ void intestazione(const char* titolo, bool pallini) {
   u8g2.drawHLine(0, Y_LINEA, W_SCHERMO);
 }
 
-// barra orizzontale con tacche ogni 1 kW disegnate in XOR
+// horizontal bar with ticks every 1 kW drawn in XOR
 void barraPotenza(float w) {
   u8g2.drawFrame(BARRA_X, BARRA_Y, BARRA_W, BARRA_H);
   float v = isnan(w) ? 0 : w;
@@ -406,7 +406,7 @@ void barraPotenza(float w) {
   int riemp = (int)((BARRA_W - 2) * (v / BARRA_FONDO));
   if (riemp > BARRA_W - 2) riemp = BARRA_W - 2;
   if (riemp > 0) u8g2.drawBox(BARRA_X + 1, BARRA_Y + 1, riemp, BARRA_H - 2);
-  u8g2.setDrawColor(2);                       // XOR: le tacche si vedono sempre
+  u8g2.setDrawColor(2);                       // XOR: the ticks are always visible
   for (int k = 1; k <= 3; k++) {
     int x = BARRA_X + (int)(BARRA_W * (k * 1000.0 / BARRA_FONDO));
     u8g2.drawVLine(x, BARRA_Y + 1, BARRA_H - 2);
@@ -415,12 +415,12 @@ void barraPotenza(float w) {
 }
 
 // ======================================================================
-//  PAGINE DEL DISPLAY
+//  DISPLAY PAGES
 // ======================================================================
 
-// pagina 1: potenza totale in cifre grandi + barra
+// page 1: total power in large digits + bar
 void paginaTotale() {
-  intestazione(allarme ? "SOVRACCARICO" : "TOTALE", !allarme);
+  intestazione(allarme ? "OVERLOAD" : "TOTAL", !allarme);
   char buf[12]; const char* um;
   formattaW(wTotale, buf, sizeof(buf), &um);
 
@@ -434,7 +434,7 @@ void paginaTotale() {
   barraPotenza(wTotale);
 }
 
-// pagina 2: i due rami
+// page 2: the two branches
 void ramo(const char* et, float w, int baseline) {
   char buf[12]; const char* um;
   formattaW(w, buf, sizeof(buf), &um);
@@ -448,18 +448,18 @@ void ramo(const char* et, float w, int baseline) {
 
 void paginaRami() {
   char tit[16];
-  if (isnan(tensione)) snprintf(tit, sizeof(tit), "RAMI");
-  else                 snprintf(tit, sizeof(tit), "RAMI %dV", (int)lroundf(tensione));
+  if (isnan(tensione)) snprintf(tit, sizeof(tit), "BRANCHES");
+  else                 snprintf(tit, sizeof(tit), "BRANCH %dV", (int)lroundf(tensione));
   intestazione(tit, true);
   ramo(nomeDisp1, wCasa, 34);
 #if USA_CANALE_2
   ramo(nomeDisp2, wCantina, 60);
 #else
-  ramo("RETE V", tensione, 60);
+  ramo("MAINS V", tensione, 60);
 #endif
 }
 
-// pagina 3: energia di oggi, del mese e picco
+// page 3: today's energy, this month's energy and peak
 void voceEnergia(const char* et, float kwh, int decimali, int baseline) {
   char buf[12];
   snprintf(buf, sizeof(buf), "%.*f", decimali, kwh);
@@ -471,40 +471,40 @@ void voceEnergia(const char* et, float kwh, int decimali, int baseline) {
 }
 
 void paginaEnergia() {
-  intestazione("ENERGIA", true);
-  voceEnergia("OGGI", kwhOggiCasa() + kwhOggiCant(), 2, 32);
-  voceEnergia("MESE", kwhMeseCasa() + kwhMeseCant(), 1, 52);
+  intestazione("ENERGY", true);
+  voceEnergia("TODAY", kwhOggiCasa() + kwhOggiCant(), 2, 32);
+  voceEnergia("MONTH", kwhMeseCasa() + kwhMeseCant(), 1, 52);
   char buf[32];
-  snprintf(buf, sizeof(buf), "picco %d W alle %s",
+  snprintf(buf, sizeof(buf), "peak %d W at %s",
            (int)lroundf(dati.picco), dati.piccoOra);
   u8g2.setFont(F_MINI);
   u8g2.drawStr(0, 63, buf);
 }
 
-// schermata quando lo Shelly non risponde
+// screen shown when the Shelly does not answer
 void paginaOffline() {
   intestazione("OFFLINE", false);
   testoCx("Shelly EM", W_SCHERMO / 2, 28, F_PICCOLO);
-  testoCx("non raggiungibile", W_SCHERMO / 2, 42, F_PICCOLO);
+  testoCx("not reachable", W_SCHERMO / 2, 42, F_PICCOLO);
   char buf[32];
   snprintf(buf, sizeof(buf), "%s  WiFi %s", SHELLY_HOST,
-           WiFi.status() == WL_CONNECTED ? "ok" : "assente");
+           WiFi.status() == WL_CONNECTED ? "ok" : "missing");
   testoCx(buf, W_SCHERMO / 2, 60, F_MINI);
 }
 
 void disegnaSchermo() {
-  if (otaInCorso) return;                 // durante l'OTA comanda schermataOTA()
+  if (otaInCorso) return;                 // during OTA schermataOTA() is in charge
   u8g2.clearBuffer();
 
   if (!datiValidi)     paginaOffline();
-  else if (allarme)    paginaTotale();    // in allarme resta fissa sulla pagina 1
+  else if (allarme)    paginaTotale();    // during an alarm it stays on page 1
   else switch (pagina) {
     case 0:  paginaTotale();  break;
     case 1:  paginaRami();    break;
     default: paginaEnergia(); break;
   }
 
-  // in allarme lo schermo lampeggia in negativo
+  // during an alarm the screen flashes in negative
   if (allarme && lampeggio) {
     u8g2.setDrawColor(2);
     u8g2.drawBox(0, 0, W_SCHERMO, H_SCHERMO);
@@ -514,9 +514,9 @@ void disegnaSchermo() {
 }
 
 // ======================================================================
-//  LETTURA DALLO SHELLY EM
+//  READING FROM THE SHELLY EM
 // ======================================================================
-// cerca "chiave":numero tra le posizioni da..a della risposta JSON
+// looks for "key":number between positions da..a of the JSON response
 bool campo(const String& r, int da, int a, const char* chiave, double& out) {
   String k = String("\"") + chiave + "\":";
   int p = r.indexOf(k, da);
@@ -527,7 +527,7 @@ bool campo(const String& r, int da, int a, const char* chiave, double& out) {
   return true;
 }
 
-// estrae l'oggetto n-esimo dell'array "emeters"
+// extracts the n-th object of the "emeters" array
 bool leggiCanale(const String& r, int inizioArray, int indice, Canale& c) {
   c.ok = false; c.w = NAN; c.v = NAN; c.pf = NAN; c.kwh = NAN;
   int ini = inizioArray;
@@ -568,7 +568,7 @@ bool leggiShelly() {
   http.end();
 
   int pe = r.indexOf("\"emeters\"");
-  if (pe < 0) { Serial.println("[SHELLY] risposta senza emeters: e' uno Shelly EM Gen1?"); return false; }
+  if (pe < 0) { Serial.println("[SHELLY] response without emeters: is it a Shelly EM Gen1?"); return false; }
 
   Canale c1, c2;
   if (!leggiCanale(r, pe, CANALE_1, c1)) return false;
@@ -583,20 +583,20 @@ bool leggiShelly() {
   pf1      = c1.pf;
   pf2      = c2.pf;
   tensione = !isnan(c1.v) ? c1.v : c2.v;
-  // totale = somma dei canali validi (una pinza staccata non manda tutto OFFLINE)
+  // total = sum of the valid channels (a disconnected clamp does not send everything OFFLINE)
   if (c1.ok || c2.ok) wTotale = (c1.ok ? c1.w : 0) + (c2.ok ? c2.w : 0);
   else                wTotale = NAN;
   if (!isnan(c1.kwh)) kCasa    = c1.kwh;
   if (!isnan(c2.kwh)) kCantina = c2.kwh;
 
-  // ora dello Shelly
+  // Shelly time
   double ut;
   if (campo(r, 0, r.length(), "unixtime", ut)) sincronizzaDaShelly((uint32_t)ut);
 
   int16_t a; uint8_t m, g;
   if (aggiornaOrologio(&a, &m, &g)) aggiornaCalendario(a, m, g);
 
-  // picco della giornata
+  // peak of the day
   if (!isnan(wTotale) && wTotale > dati.picco) {
     dati.picco = wTotale;
     strncpy(dati.piccoOra, oraStr, sizeof(dati.piccoOra) - 1);
@@ -606,12 +606,12 @@ bool leggiShelly() {
 }
 
 // ======================================================================
-//  PAGINA WEB
+//  WEB PAGE
 // ======================================================================
 static const char PAGINA[] PROGMEM = R"rawliteral(<!DOCTYPE html>
-<html lang="it"><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Monitor consumi</title><style>
+<title>Power monitor</title><style>
 *{box-sizing:border-box}
 body{margin:0;background:#0d1117;color:#e6edf3;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 header{background:#161b22;padding:14px 18px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px}
@@ -638,36 +638,36 @@ button:active{background:#1a6f2b}
 #all{background:#f85149;color:#fff;padding:12px;border-radius:10px;text-align:center;font-weight:700;letter-spacing:1px;margin-bottom:14px;display:none}
 footer{color:#6e7681;font-size:12px;text-align:center;padding:22px 12px 32px;line-height:1.7}
 </style></head><body>
-<header><span id="dot"></span><h1>Monitor consumi</h1><span id="ora" style="color:#8b949e;font-size:13px"></span></header>
+<header><span id="dot"></span><h1>Power monitor</h1><span id="ora" style="color:#8b949e;font-size:13px"></span></header>
 <main>
-<div id="all">SOVRACCARICO</div>
+<div id="all">OVERLOAD</div>
 
 <div class="griglia">
-  <div class="card big" style="grid-column:1/-1"><div class="et">Potenza totale</div><div class="vl"><span id="tot">--</span><span class="um">W</span></div></div>
-  <div class="card"><div class="et n1">Ramo 1</div><div class="vl"><span id="casa">--</span><span class="um">W</span></div><div class="et" style="margin-top:4px">cos&phi; <span id="pf1">--</span></div></div>
-  <div class="card" id="card2"><div class="et n2">Ramo 2</div><div class="vl"><span id="cant">--</span><span class="um">W</span></div><div class="et" style="margin-top:4px">cos&phi; <span id="pf2">--</span></div></div>
-  <div class="card"><div class="et">Tensione di rete</div><div class="vl"><span id="vv" class="n">--</span><span class="um">V</span></div></div>
-  <div class="card"><div class="et">Picco di oggi</div><div class="vl"><span id="pk" class="n">--</span><span class="um">W</span></div><div class="et" style="margin-top:4px">alle <span id="pko">--:--</span></div></div>
+  <div class="card big" style="grid-column:1/-1"><div class="et">Total power</div><div class="vl"><span id="tot">--</span><span class="um">W</span></div></div>
+  <div class="card"><div class="et n1">Branch 1</div><div class="vl"><span id="casa">--</span><span class="um">W</span></div><div class="et" style="margin-top:4px">cos&phi; <span id="pf1">--</span></div></div>
+  <div class="card" id="card2"><div class="et n2">Branch 2</div><div class="vl"><span id="cant">--</span><span class="um">W</span></div><div class="et" style="margin-top:4px">cos&phi; <span id="pf2">--</span></div></div>
+  <div class="card"><div class="et">Mains voltage</div><div class="vl"><span id="vv" class="n">--</span><span class="um">V</span></div></div>
+  <div class="card"><div class="et">Today's peak</div><div class="vl"><span id="pk" class="n">--</span><span class="um">W</span></div><div class="et" style="margin-top:4px">at <span id="pko">--:--</span></div></div>
 </div>
 
-<h2>Energia</h2>
+<h2>Energy</h2>
 <div class="griglia">
-  <div class="card"><div class="et">Oggi</div><div class="vl"><span id="og">--</span><span class="um">kWh</span></div><div class="et" style="margin-top:6px"><span class="n1">ramo 1</span> <span id="ogc">--</span> &middot; <span class="n2">ramo 2</span> <span id="ogk">--</span></div></div>
-  <div class="card"><div class="et">Mese corrente</div><div class="vl"><span id="me">--</span><span class="um">kWh</span></div><div class="et" style="margin-top:6px"><span class="n1">ramo 1</span> <span id="mec">--</span> &middot; <span class="n2">ramo 2</span> <span id="mek">--</span></div></div>
+  <div class="card"><div class="et">Today</div><div class="vl"><span id="og">--</span><span class="um">kWh</span></div><div class="et" style="margin-top:6px"><span class="n1">branch 1</span> <span id="ogc">--</span> &middot; <span class="n2">branch 2</span> <span id="ogk">--</span></div></div>
+  <div class="card"><div class="et">This month</div><div class="vl"><span id="me">--</span><span class="um">kWh</span></div><div class="et" style="margin-top:6px"><span class="n1">branch 1</span> <span id="mec">--</span> &middot; <span class="n2">branch 2</span> <span id="mek">--</span></div></div>
 </div>
 
-<h2>Consumo giornaliero</h2>
+<h2>Daily consumption</h2>
 <div class="gr"><div id="cg"></div>
-<div class="leg"><span><i style="background:#388bfd"></i><span class="n1">Ramo 1</span></span><span><i style="background:#2ea043"></i><span class="n2">Ramo 2</span></span><span id="tg"></span></div></div>
+<div class="leg"><span><i style="background:#388bfd"></i><span class="n1">Branch 1</span></span><span><i style="background:#2ea043"></i><span class="n2">Branch 2</span></span><span id="tg"></span></div></div>
 
-<h2>Consumo mensile</h2>
+<h2>Monthly consumption</h2>
 <div class="gr"><div id="cm"></div>
-<div class="leg"><span><i style="background:#388bfd"></i><span class="n1">Ramo 1</span></span><span><i style="background:#2ea043"></i><span class="n2">Ramo 2</span></span><span id="tm"></span></div></div>
+<div class="leg"><span><i style="background:#388bfd"></i><span class="n1">Branch 1</span></span><span><i style="background:#2ea043"></i><span class="n2">Branch 2</span></span><span id="tm"></span></div></div>
 
-<h2>Soglia di allarme</h2>
+<h2>Alarm threshold</h2>
 <div class="card"><div class="riga">
   <input type="number" id="sg" min="500" max="20000" step="50">
-  <span class="n">W</span><button onclick="salva()">Salva</button>
+  <span class="n">W</span><button onclick="salva()">Save</button>
   <span id="msg" class="n"></span>
 </div></div>
 
@@ -677,10 +677,10 @@ footer{color:#6e7681;font-size:12px;text-align:center;padding:22px 12px 32px;lin
 const $=i=>document.getElementById(i);
 const cls=w=>w<=2000?'v':(w<=3000?'g':'r');
 const nf=(v,d)=>v==null||isNaN(v)?'--':v.toFixed(d);
-let N1='Ramo 1',N2='Ramo 2';
+let N1='Branch 1',N2='Branch 2';
 
 function barre(cont,voci,etich){
-  if(!voci.length){cont.innerHTML='<p style="color:#6e7681;font-size:13px;margin:8px 4px">Nessun dato ancora registrato.</p>';return 0;}
+  if(!voci.length){cont.innerHTML='<p style="color:#6e7681;font-size:13px;margin:8px 4px">No data recorded yet.</p>';return 0;}
   const W=620,H=220,ml=44,mb=26,mt=8,mr=6;
   const gw=W-ml-mr, gh=H-mt-mb;
   let max=0,somma=0;
@@ -732,7 +732,7 @@ async function live(){
     $('me').textContent=nf(d.meC+d.meK,1); $('mec').textContent=nf(d.meC,1); $('mek').textContent=nf(d.meK,1);
     $('all').style.display=d.allarme?'block':'none';
     if(document.activeElement!==$('sg')) $('sg').value=d.soglia;
-    $('ft').innerHTML=`IP ${d.ip} &middot; WiFi ${d.rssi} dBm &middot; acceso da ${Math.floor(d.up/3600)}h ${Math.floor(d.up%3600/60)}m<br>Shelly EM ${d.sh} &middot; soglia allarme ${d.soglia} W &middot; storico ${d.ng} giorni / ${d.nm} mesi`;
+    $('ft').innerHTML=`IP ${d.ip} &middot; WiFi ${d.rssi} dBm &middot; up for ${Math.floor(d.up/3600)}h ${Math.floor(d.up%3600/60)}m<br>Shelly EM ${d.sh} &middot; alarm threshold ${d.soglia} W &middot; history ${d.ng} days / ${d.nm} months`;
   }catch(e){ $('dot').className='ko'; }
 }
 
@@ -741,16 +741,16 @@ async function storico(){
     const d=await (await fetch('/api/storico')).json();
     const sg=barre($('cg'),d.giorni,d.giorni.map(v=>v.d));
     const sm=barre($('cm'),d.mesi,d.mesi.map(v=>v.m));
-    $('tg').textContent=d.giorni.length?`totale periodo ${sg.toFixed(1)} kWh`:'';
-    $('tm').textContent=d.mesi.length?`totale periodo ${sm.toFixed(0)} kWh`:'';
+    $('tg').textContent=d.giorni.length?`period total ${sg.toFixed(1)} kWh`:'';
+    $('tm').textContent=d.mesi.length?`period total ${sm.toFixed(0)} kWh`:'';
   }catch(e){}
 }
 
 async function salva(){
   const v=parseInt($('sg').value);
-  if(!(v>=500&&v<=20000)){$('msg').textContent='valore non valido';return;}
+  if(!(v>=500&&v<=20000)){$('msg').textContent='invalid value';return;}
   const r=await fetch('/api/soglia?w='+v,{method:'POST'});
-  $('msg').textContent=r.ok?'salvata':'errore';
+  $('msg').textContent=r.ok?'saved':'error';
   setTimeout(()=>$('msg').textContent='',2500);
   live();
 }
@@ -761,7 +761,7 @@ setInterval(storico,60000);
 </script></body></html>)rawliteral";
 
 // ======================================================================
-//  API DEL WEBSERVER
+//  WEB SERVER API
 // ======================================================================
 static float z(float v) { return isnan(v) ? 0 : v; }
 
@@ -796,7 +796,7 @@ void apiStorico() {
              dati.giorni[i].casa, dati.giorni[i].cant);
     j += v;
   }
-  // il giorno in corso, ancora aperto
+  // the current day, still open
   if (dati.annoCorr != 0) {
     char v[96];
     snprintf(v, sizeof(v), "%s{\"d\":\"%02u/%02u\",\"c\":%.3f,\"k\":%.3f}",
@@ -824,12 +824,12 @@ void apiStorico() {
 }
 
 void apiSoglia() {
-  if (!server.hasArg("w")) { server.send(400, "text/plain", "manca w"); return; }
+  if (!server.hasArg("w")) { server.send(400, "text/plain", "missing w"); return; }
   float v = server.arg("w").toFloat();
-  if (v < 500 || v > 20000) { server.send(400, "text/plain", "fuori intervallo"); return; }
+  if (v < 500 || v > 20000) { server.send(400, "text/plain", "out of range"); return; }
   dati.soglia = v;
   salvaDati();
-  Serial.printf("[WEB] nuova soglia %.0f W\n", v);
+  Serial.printf("[WEB] new threshold %.0f W\n", v);
   server.send(200, "application/json", "{\"ok\":true}");
 }
 
@@ -838,9 +838,9 @@ void avviaWebServer() {
   server.on("/api/live",    HTTP_GET, apiLive);
   server.on("/api/storico", HTTP_GET, apiStorico);
   server.on("/api/soglia",  HTTP_ANY, apiSoglia);
-  server.onNotFound([]() { server.send(404, "text/plain", "non trovato"); });
+  server.onNotFound([]() { server.send(404, "text/plain", "not found"); });
   server.begin();
-  Serial.println("[WEB] server avviato sulla porta 80");
+  Serial.println("[WEB] server started on port 80");
 }
 
 // ======================================================================
@@ -849,7 +849,7 @@ void avviaWebServer() {
 void schermataOTA(const char* titolo, int perc) {
   u8g2.clearBuffer();
   u8g2.setFont(F_MINI);
-  u8g2.drawStr(0, Y_TESTA, "AGGIORNAMENTO OTA");
+  u8g2.drawStr(0, Y_TESTA, "OTA UPDATE");
   u8g2.drawHLine(0, Y_LINEA, W_SCHERMO);
   testoCx(titolo, W_SCHERMO / 2, 26, F_PICCOLO);
   if (perc >= 0) {
@@ -880,18 +880,18 @@ void avviaOTA() {
     int perc = (totale > 0) ? (int)((fatto * 100UL) / totale) : 0;
     if (perc == otaUltimaPerc) return;
     otaUltimaPerc = perc;
-    schermataOTA("in corso", perc);
+    schermataOTA("in progress", perc);
   });
 
-  ArduinoOTA.onEnd([]() { schermataOTA("Completato", 100); });
+  ArduinoOTA.onEnd([]() { schermataOTA("Complete", 100); });
 
   ArduinoOTA.onError([](ota_error_t e) {
-    const char* m = "Errore sconosciuto";
-    if      (e == OTA_AUTH_ERROR)    m = "Password errata";
-    else if (e == OTA_BEGIN_ERROR)   m = "Avvio fallito";
-    else if (e == OTA_CONNECT_ERROR) m = "Connessione persa";
-    else if (e == OTA_RECEIVE_ERROR) m = "Ricezione fallita";
-    else if (e == OTA_END_ERROR)     m = "Chiusura fallita";
+    const char* m = "Unknown error";
+    if      (e == OTA_AUTH_ERROR)    m = "Wrong password";
+    else if (e == OTA_BEGIN_ERROR)   m = "Begin failed";
+    else if (e == OTA_CONNECT_ERROR) m = "Connection lost";
+    else if (e == OTA_RECEIVE_ERROR) m = "Receive failed";
+    else if (e == OTA_END_ERROR)     m = "End failed";
     schermataOTA(m, -1);
     delay(4000);
     ESP.restart();
@@ -899,7 +899,7 @@ void avviaOTA() {
 
   ArduinoOTA.begin();
   otaAttivo = true;
-  Serial.println("[OTA] pronto");
+  Serial.println("[OTA] ready");
 }
 
 // ======================================================================
@@ -910,12 +910,12 @@ void avviaWiFi() {
   WiFi.setHostname(OTA_HOSTNAME);
   WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.print("[WiFi] connessione");
+  Serial.print("[WiFi] connecting");
   unsigned long t0 = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) { delay(300); Serial.print('.'); }
   Serial.println();
   if (WiFi.status() == WL_CONNECTED) Serial.println("[WiFi] IP " + WiFi.localIP().toString());
-  else Serial.println("[WiFi] timeout, riprovo in background");
+  else Serial.println("[WiFi] timeout, retrying in the background");
 }
 
 void avviaServizi() {
@@ -923,15 +923,15 @@ void avviaServizi() {
     MDNS.addService("http", "tcp", 80);
     Serial.println("[mDNS] http://" OTA_HOSTNAME ".local");
   }
-  configTzTime(FUSO_ORARIO, NTP_SERVER);   // riserva: se c'e' Internet l'ora arriva anche da qui
+  configTzTime(FUSO_ORARIO, NTP_SERVER);   // fallback: if there is Internet access the time also comes from here
   avviaOTA();
   avviaWebServer();
 }
 
-// schermata di avvio
+// startup screen
 void schermataAvvio(const char* riga2, const char* riga3) {
   u8g2.clearBuffer();
-  testoCx("Monitor consumi", W_SCHERMO / 2, 18, F_PICCOLO);
+  testoCx("Power monitor", W_SCHERMO / 2, 18, F_PICCOLO);
   u8g2.drawHLine(8, 24, W_SCHERMO - 16);
   if (riga2) testoCx(riga2, W_SCHERMO / 2, 42, F_PICCOLO);
   if (riga3) testoCx(riga3, W_SCHERMO / 2, 58, F_MINI);
@@ -954,21 +954,21 @@ void setup() {
   buzzerTono(0);
 
   Wire.begin(PIN_SDA, PIN_SCL, I2C_HZ);
-  u8g2.setI2CAddress(OLED_ADDR * 2);      // U8g2 vuole l'indirizzo gia' shiftato
+  u8g2.setI2CAddress(OLED_ADDR * 2);      // U8g2 wants the address already shifted
   u8g2.begin();
   u8g2.setBusClock(I2C_HZ);
   u8g2.setContrast(255);
-  schermataAvvio("avvio...", NULL);
+  schermataAvvio("starting...", NULL);
 
   caricaDati();
   avviaWiFi();
 
   if (WiFi.status() == WL_CONNECTED) {
     avviaServizi();
-    schermataAvvio("WiFi connesso", WiFi.localIP().toString().c_str());
+    schermataAvvio("WiFi connected", WiFi.localIP().toString().c_str());
     delay(1500);
   } else {
-    schermataAvvio("WiFi assente", "riprovo in background");
+    schermataAvvio("No WiFi", "retrying in background");
     delay(1500);
   }
 
@@ -983,26 +983,26 @@ void loop() {
     server.handleClient();
   }
 
-  // --- riconnessione WiFi non bloccante ---
+  // --- non-blocking WiFi reconnection ---
   static unsigned long tWiFi = 0;
   if (WiFi.status() != WL_CONNECTED && millis() - tWiFi > 10000) {
     tWiFi = millis();
-    Serial.println("[WiFi] riconnessione");
+    Serial.println("[WiFi] reconnecting");
     WiFi.disconnect();
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   }
   if (!otaAttivo && WiFi.status() == WL_CONNECTED) avviaServizi();
 
-  // --- lettura periodica dello Shelly EM ---
+  // --- periodic reading of the Shelly EM ---
   if (millis() - tUltimaLettura >= PERIODO_LETTURA) {
     tUltimaLettura = millis();
     bool ok = (WiFi.status() == WL_CONNECTED) ? leggiShelly() : false;
     if (ok) erroriDiFila = 0;
     else if (erroriDiFila < 255) erroriDiFila++;
-    // una lettura persa non fa sparire i valori: si va OFFLINE solo dopo qualche errore di fila
+    // one missed reading does not clear the values: go OFFLINE only after a few consecutive errors
     datiValidi = (erroriDiFila < ERRORI_OFFLINE);
     if (!datiValidi) { wTotale = NAN; wCasa = NAN; wCantina = NAN; tensione = NAN; pf1 = NAN; pf2 = NAN; }
-    if (!ok) aggiornaOrologio(nullptr, nullptr, nullptr);   // l'orologio va avanti lo stesso
+    if (!ok) aggiornaOrologio(nullptr, nullptr, nullptr);   // the clock keeps running anyway
 
     if (!isnan(wTotale)) {
       if (!allarme && wTotale > dati.soglia)                allarme = true;
@@ -1010,27 +1010,27 @@ void loop() {
     } else allarme = false;
   }
 
-  // --- rotazione automatica delle pagine ---
+  // --- automatic page rotation ---
   if (allarme || !datiValidi) {
-    tUltimaPagina = millis();                 // in allarme o offline niente rotazione
+    tUltimaPagina = millis();                 // no rotation during an alarm or offline
   } else if (millis() - tUltimaPagina >= PERIODO_PAGINA) {
     tUltimaPagina = millis();
     pagina = (pagina + 1) % N_PAGINE;
   }
 
-  // --- lampeggio in allarme ---
+  // --- flashing during an alarm ---
   if (millis() - tUltimoLampeggio >= 500) {
     tUltimoLampeggio = millis();
     lampeggio = allarme ? !lampeggio : false;
   }
 
-  // --- ridisegno del display ---
+  // --- display redraw ---
   if (millis() - tUltimoSchermo >= PERIODO_SCHERMO) {
     tUltimoSchermo = millis();
     disegnaSchermo();
   }
 
-  // --- salvataggio periodico del picco ---
+  // --- periodic saving of the peak ---
   if (millis() - tUltimoSalva >= PERIODO_SALVA) salvaDati();
 
   gestisciBuzzer();

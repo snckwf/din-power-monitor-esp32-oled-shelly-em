@@ -1,52 +1,53 @@
-// supporto_din_display_esp32.scad  — rev.9
-// Supporto barra DIN 35 mm — 4 moduli (69.8 mm) — altezza magnetotermico (DIN 43880)
+// din_enclosure_display_esp32.scad  — rev.9
+// 35 mm DIN rail enclosure — 4 modules (69.8 mm) — circuit-breaker height (DIN 43880)
+// Parts: "body" (corpo), "bezel" (fascia), "lid" (coperchio)
 //
-// rev.9 (2026-07): CORPO rifatto.
-//   - finestra 17.6 x 11 nella parete frontale in corrispondenza dello strip a 4 pin
-//     saldato sul display, larga abbastanza per far passare le femmine Dupont;
-//     resta interamente coperta dalla fascia, dal davanti non si vede nulla
-//   - intaglio nel binario destro dell'ESP32 dietro alla finestra, per liberare
-//     spazio al connettore
-//   - alloggiamento a scorrimento per il buzzer LS3040 (disco D29.3 x 5) sul lato
-//     lungo destro, con linguetta elastica di ritegno e 7 fori di uscita sonora
-// rev.8  tasca del display allargata (giochi 0.60), spine D2.7.
-// rev.7  quote del display corrette sul disegno ufficiale WP013?L102B-01A;
-//        finestra grande quanto la viewing area 31.42 x 16.70.
-// rev.6  display cambiato da ST7789 1.69" SPI a OLED SH1106 1.3" I2C.
+// rev.9 (2026-07): BODY redesigned.
+//   - 17.6 x 11 window in the front wall in line with the 4-pin strip
+//     soldered to the display, wide enough for Dupont female connectors;
+//     it stays fully covered by the bezel, nothing is visible from the front
+//   - notch in the ESP32's right rail behind the window, to make room
+//     for the connector
+//   - sliding seat for the LS3040 buzzer (D29.3 x 5 disc) on the long
+//     right side, with a spring retaining tab and 7 sound holes
+// rev.8  display pocket enlarged (0.60 clearances), D2.7 locating pins.
+// rev.7  display dimensions corrected from the official drawing WP013?L102B-01A;
+//        window as large as the 31.42 x 16.70 viewing area.
+// rev.6  display changed from 1.69" ST7789 SPI to 1.3" SH1106 I2C OLED.
 //
-// COSA SI RISTAMPA: fascia (rev.8) e corpo (rev.9). Il coperchio e' invariato
-// dalla rev.5 e non va ristampato.
+// WHAT TO REPRINT: bezel (rev.8) and body (rev.9). The lid is unchanged
+// since rev.5 and does not need reprinting.
 //
-// DISPLAY — quote da WP013?L102B-01A
+// DISPLAY — dimensions from WP013?L102B-01A
 //   PCB              35.40 x 33.50 x 1.00
-//   vetro OLED       34.50 x 23.00 x 1.50, a 0.45 dai lati e 5.25 dal bordo alto
-//   biadesivo schiuma 0.80 fra vetro e PCB -> spessore totale 3.30
-//   viewing area     31.42 x 16.70  (e' la finestra della fascia)
-//   area attiva      29.42 x 14.70
-//   fori             4 x D3.1, a 2.50 da ogni bordo -> interasse 30.40 x 28.50
-//   strip 4 pin      passo 2.54, riga a 2.50 dal bordo alto, gruppo centrato;
-//                    da davanti, da sinistra: VSS(GND) - VDD - SCK - SDA
+//   OLED glass       34.50 x 23.00 x 1.50, 0.45 from the sides and 5.25 from the top edge
+//   foam tape        0.80 between glass and PCB -> total thickness 3.30
+//   viewing area     31.42 x 16.70  (this is the bezel window)
+//   active area      29.42 x 14.70
+//   holes            4 x D3.1, 2.50 from each edge -> spacing 30.40 x 28.50
+//   4-pin strip      2.54 pitch, row 2.50 from the top edge, group centred;
+//                    from the front, from the left: VSS(GND) - VDD - SCK - SDA
 //
-// MONTAGGIO
-//   1. display nella fascia: entra nella tasca, centrato dalle 4 spine, fermato
-//      con una goccia di colla a caldo. Lo strip esce dal retro e passa nella
-//      finestra del corpo.
-//   2. buzzer: si infila da dietro nella sede sul lato destro finche' scatta
-//      sotto la linguetta; batte a z 14 e arriva a z 44, il coperchio lo chiude.
-//   3. ESP32 nei binari, vite M3 sul boss inferiore.
-//   4. fascia sul corpo con 4 viti M3 dall'interno: usare viti a testa cilindrica
-//      bassa sulle due di destra (y 32 e 53), la testa passa davanti al buzzer.
+// ASSEMBLY
+//   1. display into the bezel: it goes into the pocket, centred by the 4 pins, held
+//      with a drop of hot glue. The strip comes out of the back and passes through
+//      the body window.
+//   2. buzzer: slide it in from the back into the seat on the right side until it
+//      clicks under the tab; it stops at z 14 and reaches z 44, the lid closes it.
+//   3. ESP32 in the rails, M3 screw on the lower boss.
+//   4. bezel onto the body with 4 M3 screws from the inside: use low cheese-head
+//      screws on the two on the right (y 32 and 53), their heads pass in front of the buzzer.
 //
-// STAMPA
-//   fascia    a faccia in giu'
-//   corpo     a fronte in giu'
-//   coperchio piano sul letto, clip verso l'alto
-//   Nessun supporto su nessuno dei tre pezzi.
+// PRINTING
+//   bezel     face down
+//   body      front face down
+//   lid       flat on the bed, clips facing up
+//   No supports on any of the three parts.
 
-/* [Pezzo da renderizzare] */
-parte = "anteprima"; // ["anteprima","corpo","fascia","coperchio"]
+/* [Part to render] */
+parte = "preview"; // ["preview","body","bezel","lid"]
 
-/* [Dimensioni generali DIN 43880] */
+/* [DIN 43880 overall dimensions] */
 moduli      = 4;
 larg        = moduli*17.5 - 0.2;  // 69.8
 alt         = 85;
@@ -79,7 +80,7 @@ pad_x1     = 13.89;
 pad_passo  = 2.54;
 pad_n      = 4;
 
-/* [Giochi e lavorazioni della fascia] */
+/* [Bezel clearances and features] */
 gioco_pcb   = 0.60;
 gioco_vetro = 0.60;
 spina_d     = 2.70;
@@ -88,39 +89,39 @@ svaso       = 1.20;
 gap_retro   = 1.70;
 pad_rilievo = 1.00;
 
-/* [Canale fili laterale della fascia -> asola rev.5 del corpo] */
+/* [Bezel side wire channel -> rev.5 body slot] */
 can_x0 = 45.0;
 can_x1 = 57.0;
 can_y0 = 12.0;
 can_y1 = 33.0;
 asola_x0 = 49.825;
 asola_w  = 9.5;
-asola_y0 = 33.0;      // coordinate corpo
+asola_y0 = 33.0;      // body coordinates
 asola_h  = 19.0;
 
-/* [Finestra per lo strip a 4 pin del display — rev.9] */
+/* [Window for the display's 4-pin strip — rev.9] */
 fpin_x0 = 27.0;
 fpin_x1 = 44.6;
-fpin_y0 = 49.0;       // coordinate corpo
+fpin_y0 = 49.0;       // body coordinates
 fpin_y1 = 60.0;
-tag_x0  = 39.5;       // intaglio nel binario destro
+tag_x0  = 39.5;       // notch in the right rail
 tag_x1  = 45.2;
 tag_y0  = 49.0;
 tag_y1  = 60.0;
 tag_z1  = 20.5;
 
-/* [Buzzer LS3040 — disco D29.3 x 5 con fili — rev.9] */
+/* [LS3040 buzzer — D29.3 x 5 disc with wires — rev.9] */
 bz_d      = 29.3;
 bz_t      = 5.0;
-bz_gd     = 0.7;      // gioco sul diametro
-bz_gt     = 0.6;      // gioco sullo spessore
-bz_cy     = 41.0;     // centro del disco lungo y
-bz_par    = 2.0;      // spessore delle nervature
-bz_z_stop = 14.0;     // battuta: lascia libere le teste delle viti fascia
-bz_tng_y0 = 35.0;     // fessure che ricavano la linguetta elastica
+bz_gd     = 0.7;      // diameter clearance
+bz_gt     = 0.6;      // thickness clearance
+bz_cy     = 41.0;     // disc centre along y
+bz_par    = 2.0;      // rib thickness
+bz_z_stop = 14.0;     // stop: keeps the bezel screw heads clear
+bz_tng_y0 = 35.0;     // slots that form the spring tab
 bz_tng_y1 = 46.0;
 bz_tng_z0 = 30.0;
-bz_foro_d = 3.2;      // fori di uscita sonora
+bz_foro_d = 3.2;      // sound holes
 bz_foro_r = 6.5;
 
 /* [ESP32 DevKit 30 pin USB-C — PCBA 28 x 50] */
@@ -133,7 +134,7 @@ esp_z      = 15.5;
 esp_gioco  = 0.20;
 esp_presa  = 3.50;
 
-/* [Passacavo alimentazione 5 V] */
+/* [5 V power cable grommet] */
 cavo_d     = 5.0;
 cavo_x     = 55.0;
 cavo_z     = 22.0;
@@ -142,13 +143,13 @@ fasc_w     = 2.2;
 fasc_h     = 7.0;
 fasc_dx    = 7.0;
 
-/* [Aggancio DIN 35 mm (EN 50022)] */
+/* [35 mm DIN clip (EN 50022)] */
 rail_sp  = 1.4;
 
-/* [Qualita'] */
+/* [Quality] */
 $fn = 48;
 
-// ---------- derivate (non toccare) ----------
+// ---------- derived (do not touch) ----------
 pf       = fascia_spor + parete_fr;       // 10.5
 cx       = larg/2;
 cyl      = fascia_alt/2;
@@ -190,7 +191,7 @@ viti_fascia = [[5, 12], [5, 33], [63.5, 12], [63.5, 33]];
 colonnine   = [[6.5,6.5],[larg-6.5,6.5],[6.5,alt-6.5],[larg-6.5,alt-6.5]];
 
 // =====================================================
-// FASCIA  (invariata dalla rev.8)
+// BEZEL (fascia)  (unchanged since rev.8)
 // =====================================================
 module fascia() {
   union() {
@@ -223,7 +224,7 @@ module fascia() {
 }
 
 // =====================================================
-// CORPO  rev.9
+// BODY (corpo)  rev.9
 // =====================================================
 module binario_sx() {
     translate([esp_x0-3.6, esp_y0, pf]) cube([4.6, esp_l, esp_z-pf]);
@@ -238,18 +239,18 @@ module dente_superiore() {
         cube([10, esp_presa, 2.5]);
 }
 
-// sede del buzzer: due guide, una nervatura interna con linguetta elastica,
-// due battute che lasciano libere le teste delle viti della fascia
+// buzzer seat: two guides, an inner rib with a spring tab,
+// two stops that keep the bezel screw heads clear
 module sede_buzzer() {
     translate([bz_x0-bz_par, bz_y0-bz_par, pf])
-        cube([bz_par, bz_slot_d + 2*bz_par, bz_z1-pf]);          // nervatura interna
+        cube([bz_par, bz_slot_d + 2*bz_par, bz_z1-pf]);          // inner rib
     translate([bz_x0-bz_par, bz_y0-bz_par, pf])
-        cube([bz_par + bz_slot_t, bz_par, bz_z1-pf]);            // guida bassa
+        cube([bz_par + bz_slot_t, bz_par, bz_z1-pf]);            // lower guide
     translate([bz_x0-bz_par, bz_y1, pf])
-        cube([bz_par + bz_slot_t, bz_par, bz_z1-pf]);            // guida alta
-    translate([bz_x0, bz_y0, pf]) cube([bz_slot_t, 4.0, bz_z_stop-pf]);   // battuta 1
-    translate([bz_x0, 38.0, pf])  cube([bz_slot_t, 8.0, bz_z_stop-pf]);   // battuta 2
-    // dente: sottile in alto (entrata), spesso in basso (ritegno)
+        cube([bz_par + bz_slot_t, bz_par, bz_z1-pf]);            // upper guide
+    translate([bz_x0, bz_y0, pf]) cube([bz_slot_t, 4.0, bz_z_stop-pf]);   // stop 1
+    translate([bz_x0, 38.0, pf])  cube([bz_slot_t, 8.0, bz_z_stop-pf]);   // stop 2
+    // tooth: thin at the top (entry), thick at the bottom (retention)
     hull() {
         translate([bz_x0, 37.0, 44.0]) cube([0.15, 8.0, 0.5]);
         translate([bz_x0, 37.0, 42.0]) cube([1.20, 8.0, 1.2]);
@@ -277,38 +278,38 @@ module corpo() {
                 cylinder(d=cavo_d+4, h=cavo_coll, $fn=32);
             sede_buzzer();
         }
-        // asola rev.5: ci passa il canale fili laterale della fascia
+        // rev.5 slot: the bezel's side wire channel passes through it
         translate([asola_x0, asola_y0, fascia_spor-1])
             cube([asola_w, asola_h, parete_fr+2]);
-        // finestra per lo strip a 4 pin del display
+        // window for the display's 4-pin strip
         translate([fpin_x0, fpin_y0, fascia_spor-1])
             cube([fpin_x1-fpin_x0, fpin_y1-fpin_y0, parete_fr+2]);
-        // intaglio nel binario destro dietro alla finestra
+        // notch in the right rail behind the window
         translate([tag_x0, tag_y0, pf-0.1])
             cube([tag_x1-tag_x0, tag_y1-tag_y0, tag_z1-pf+0.1]);
-        // passacavo alimentazione 5 V + asole per fascetta stringicavo
+        // 5 V power cable grommet + slots for a cable tie
         translate([cavo_x, -1, cavo_z]) rotate([-90,0,0])
             cylinder(d=cavo_d, h=parete+cavo_coll+2, $fn=32);
         translate([cavo_x-fasc_dx-fasc_w/2, -1, cavo_z-fasc_h/2]) cube([fasc_w, parete+2, fasc_h]);
         translate([cavo_x+fasc_dx-fasc_w/2, -1, cavo_z-fasc_h/2]) cube([fasc_w, parete+2, fasc_h]);
-        // fori passanti per le viti della fascia
+        // through holes for the bezel screws
         for (p = viti_fascia)
             translate([p[0], p[1]+off_f, fascia_spor-1]) cylinder(d=3.4, h=parete_fr+2, $fn=32);
-        // feritoie di ventilazione
+        // ventilation slots
         for (xv = [12,26,40,54]) translate([xv, alt-parete-1, 30]) cube([8, parete+2, 3]);
         for (xv = [12,26])       translate([xv, -1, 30])           cube([8, parete+2, 3]);
-        // fori colonnine coperchio
+        // lid post holes
         for (p = colonnine) translate([p[0], p[1], prof-12]) cylinder(d=2.6, h=12.1, $fn=32);
-        // foro del boss inferiore di bloccaggio scheda
+        // hole of the lower board-locking boss
         translate([esp_x0+esp_w/2, esp_y0-4, pf-0.1]) cylinder(d=2.6, h=esp_back-pf+0.2, $fn=32);
-        // fessure che ricavano la linguetta elastica della sede buzzer
+        // slots that form the spring tab of the buzzer seat
         translate([bz_x0-bz_par-0.1, bz_tng_y0, bz_tng_z0])
             cube([bz_par+0.2, 1.0, bz_z1-bz_tng_z0+0.2]);
         translate([bz_x0-bz_par-0.1, bz_tng_y1, bz_tng_z0])
             cube([bz_par+0.2, 1.0, bz_z1-bz_tng_z0+0.2]);
-        // passaggio dei fili del buzzer attraverso la guida alta
+        // buzzer wire passage through the upper guide
         translate([bz_x0-0.2, bz_y1-0.1, 20.0]) cube([bz_slot_t+0.4, bz_par+0.2, 10.0]);
-        // fori di uscita sonora sulla parete destra
+        // sound holes in the right wall
         translate([larg-parete-1, bz_cy, bz_cz]) rotate([0,90,0])
             cylinder(d=bz_foro_d, h=parete+2, $fn=32);
         for (a = [0:5])
@@ -320,7 +321,7 @@ module corpo() {
 }
 
 // =====================================================
-// COPERCHIO con aggancio DIN  (invariato dalla rev.5)
+// LID (coperchio) with DIN clip  (unchanged since rev.5)
 // =====================================================
 module coperchio() {
     t = 2.5;
@@ -350,9 +351,9 @@ module coperchio() {
 }
 
 // =====================================================
-if (parte == "corpo")          translate([0,0,-fascia_spor]) corpo();
-else if (parte == "fascia")    fascia();
-else if (parte == "coperchio") coperchio();
+if (parte == "body")           translate([0,0,-fascia_spor]) corpo();
+else if (parte == "bezel")     fascia();
+else if (parte == "lid")       coperchio();
 else {
     corpo();
     translate([0, off_f, 0]) fascia();

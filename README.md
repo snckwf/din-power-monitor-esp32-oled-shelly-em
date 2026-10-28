@@ -1,140 +1,140 @@
-# Monitor dei consumi su barra DIN con ESP32 che legge direttamente lo Shelly EM
+# DIN-rail energy monitor with ESP32 reading a Shelly EM directly
 
-> 📖 **Articolo completo con spiegazioni passo passo:**  
-> **[Monitor dei consumi su barra DIN con ESP32 che legge direttamente lo Shelly EM, senza Home Assistant – www.emgi.it](https://www.emgi.it/2026/10/13/monitor-consumi-barra-din-esp32-shelly-em-senza-home-assistant/)**
+> 📖 **Full article with step-by-step explanations (in Italian):**  
+> **[DIN-rail energy monitor with ESP32 reading a Shelly EM directly, without Home Assistant – www.emgi.it](https://www.emgi.it/2026/10/13/monitor-consumi-barra-din-esp32-shelly-em-senza-home-assistant/)**
 >
-> Altri progetti di elettronica, Arduino, ESP32, Home Assistant e stampa 3D su **[www.emgi.it](https://www.emgi.it)**
+> More electronics, Arduino, ESP32, Home Assistant and 3D printing projects at **[www.emgi.it](https://www.emgi.it)**
 
-![Monitor dei consumi su barra DIN con ESP32 e Shelly EM](immagini/copertina-3d.jpg)
+![DIN-rail energy monitor with ESP32 and Shelly EM](images/cover-3d.jpg)
 
-Un **ESP32** con display **OLED SH1106 1,3"** dentro un contenitore da **barra DIN da 4 moduli** stampato in 3D, che interroga lo **Shelly EM** direttamente in rete locale, **senza Home Assistant** in mezzo. Mostra nel quadro elettrico la potenza assorbita in tempo reale, la tensione di rete, tiene lo storico dei kWh e suona quando si supera la soglia.
+An **ESP32** with a **1.3" SH1106 OLED** display inside a 3D-printed **4-module DIN-rail enclosure** that queries the **Shelly EM** directly on the local network, **without Home Assistant** in between. It shows the real-time power consumption and the mains voltage right in the electrical panel, keeps a kWh history and sounds an alarm when the threshold is exceeded.
 
-È la seconda versione del progetto [monitor-consumi-din-esp32-oled-home-assistant](https://github.com/snckwf/monitor-consumi-din-esp32-oled-home-assistant): **stesso hardware e stesso contenitore**, firmware diverso. Per l'installazione dello Shelly EM nel quadro vedi [Shelly EM con pinze amperometriche](https://www.emgi.it/2026/10/09/shelly-em-home-assistant-pinze-amperometriche/).
+It is the second version of the project [din-power-monitor-esp32-oled-home-assistant](https://github.com/snckwf/din-power-monitor-esp32-oled-home-assistant): **same hardware and same enclosure**, different firmware. For installing the Shelly EM in the panel see [Shelly EM with current clamps](https://www.emgi.it/2026/10/09/shelly-em-home-assistant-pinze-amperometriche/) (in Italian).
 
-![Percorso dei dati: Shelly EM, Wi-Fi, ESP32](immagini/schema-shelly-esp32.png)
+![Data path: Shelly EM, Wi-Fi, ESP32](images/data-path-shelly-esp32.png)
 
-## Cosa fa il progetto
+## What it does
 
-- **potenza istantanea** del totale e dei due rami, letta dallo Shelly EM **ogni secondo** con una sola `GET /status`
-- **tensione di rete** e **fattore di potenza** dei due canali
-- **tre pagine** che ruotano ogni 5 secondi: totale con cifre grandi e barra 0–4 kW, i due rami (con la tensione nell'intestazione), energia di oggi e del mese con il picco giornaliero
-- **allarme sovraccarico**: sirena bitonale sul buzzer, display bloccato sulla pagina del totale e lampeggiante in negativo, isteresi di 100 W
-- **picco massimo giornaliero** con valore e ora
-- **storico kWh**: 31 giorni e 12 mesi su LittleFS, calcolati per differenza dai contatori cumulativi dello Shelly (`total`, in Wh), con riallineamento automatico se il contatore riparte da zero
-- **pagina web** con valori live, grafici a barre giornalieri e mensili (SVG senza librerie esterne) e regolazione della soglia senza ricompilare
-- **API JSON** `/api/live` e `/api/storico`
-- **aggiornamento OTA** con percentuale sul display
-- **data e ora prese dallo Shelly** (`unixtime`), con NTP di riserva; fuso italiano e ora legale già impostati
-- schermata **OFFLINE** dopo tre letture fallite di fila, con l'IP dello Shelly e lo stato del Wi-Fi
-- **nessuna dipendenza** da Home Assistant, dal cloud Shelly o da Internet
+- **instantaneous power** of the total and of the two branches, read from the Shelly EM **every second** with a single `GET /status`
+- **mains voltage** and **power factor** of the two channels
+- **three pages** rotating every 5 seconds: total in large digits with a 0–4 kW bar, the two branches (with the voltage in the header), today's and this month's energy with the daily peak
+- **overload alarm**: two-tone siren on the buzzer, display locked on the total page and flashing in negative, 100 W hysteresis
+- **daily maximum peak** with value and time
+- **kWh history**: 31 days and 12 months on LittleFS, calculated as the difference of the Shelly cumulative counters (`total`, in Wh), with automatic realignment if the counter restarts from zero
+- **web page** with live values, daily and monthly bar charts (SVG, no external libraries) and threshold adjustment without recompiling
+- **JSON API** `/api/live` and `/api/storico` (history)
+- **OTA update** with a percentage on the display
+- **date and time taken from the Shelly** (`unixtime`), with NTP as a fallback; Italian time zone and daylight saving time preset (change `FUSO_ORARIO` for your country)
+- **OFFLINE** screen after three consecutive failed readings, with the Shelly IP and the Wi-Fi status
+- **no dependency** on Home Assistant, the Shelly cloud or the Internet
 
-## Componenti utilizzati
+## Parts used
 
-- **Shelly EM di prima generazione** (tipo `SHEM`) con le sue due pinze, già installato e collegato al Wi-Fi
-- ESP32 DevKit 30 pin (PCBA 28 × 50 mm)
-- display OLED **SH1106 1,3" 128×64 I2C** (indirizzo 0x3C, su alcuni cloni 0x3D)
-- buzzer piezo **passivo** LS3040 (disco ⌀29,3 × 5 mm)
-- alimentatore 5 V
-- contenitore stampato in 3D (3 pezzi, STL in `case_3d/`)
-- 5 viti M3 (le due della fascia sul lato buzzer a **testa cilindrica bassa**)
+- **First-generation Shelly EM** (type `SHEM`) with its two clamps, already installed and connected to Wi-Fi
+- 30-pin ESP32 DevKit (PCBA 28 × 50 mm)
+- **SH1106 1.3" 128×64 I2C** OLED display (address 0x3C, 0x3D on some clones)
+- LS3040 **passive** piezo buzzer (⌀29.3 × 5 mm disc)
+- 5 V power supply
+- 3D-printed enclosure (3 parts, STL files in `case_3d/`)
+- 5 M3 screws (the two on the buzzer side of the bezel with a **low cheese head**)
 
-> ⚠️ Gli Shelly **Gen2/Gen3** (Pro EM, EM Gen3) usano le API RPC e **non sono supportati** da questo sketch. Per verificare il modello apri `http://IP-DELLO-SHELLY/shelly`: deve comparire `"type":"SHEM"`.
+> ⚠️ **Gen2/Gen3** Shelly devices (Pro EM, EM Gen3) use the RPC API and are **not supported** by this sketch. To check your model open `http://SHELLY-IP/shelly`: it must show `"type":"SHEM"`.
 
-## Collegamenti elettrici
+## Wiring
 
-Scheda: **ESP32 DevKit 30 pin**. Pin verificati sullo sketch (`PIN_SDA 21`, `PIN_SCL 22`, `PIN_BUZZER 27`).
+Board: **30-pin ESP32 DevKit**. Pins checked against the sketch (`PIN_SDA 21`, `PIN_SCL 22`, `PIN_BUZZER 27`).
 
-| ESP32 | Collegato a |
+| ESP32 | Connected to |
 |---|---|
-| **GPIO 21** | **SDA** del display SH1106 |
-| **GPIO 22** | **SCK / SCL** del display SH1106 |
-| **3V3** | **VDD** del display (il modulo ha il regolatore a bordo, regge anche 5 V) |
-| **GND** | **VSS/GND** del display, **−** del buzzer (massa comune) |
-| **GPIO 27** | **+** del buzzer **passivo** (pilotato in PWM tramite LEDC) |
-| **5V / USB** | alimentatore 5 V |
+| **GPIO 21** | **SDA** of the SH1106 display |
+| **GPIO 22** | **SCK / SCL** of the SH1106 display |
+| **3V3** | display **VDD** (the module has an on-board regulator, it also tolerates 5 V) |
+| **GND** | display **VSS/GND**, buzzer **−** (common ground) |
+| **GPIO 27** | **passive** buzzer **+** (PWM driven via LEDC) |
+| **5V / USB** | 5 V power supply |
 
-Bus I2C a 400 kHz, nessuna resistenza di pull-up esterna. Lo Shelly EM **non ha collegamenti fisici** con l'ESP32: comunicano via Wi-Fi.
+400 kHz I2C bus, no external pull-up resistors. The Shelly EM has **no physical connection** to the ESP32: they talk over Wi-Fi.
 
-> ⚠️ **Ordine dei pad del display.** Guardando il display **da davanti**, i quattro pad in alto da sinistra a destra sono `VSS – VDD – SCK – SDA`. **Visto da dietro l'ordine è invertito.**
+> ⚠️ **Display pad order.** Looking at the display **from the front**, the four pads at the top from left to right are `VSS – VDD – SCK – SDA`. **Seen from the back the order is reversed.**
 
-> ⚠️ Il buzzer deve essere **passivo**: uno attivo suonerebbe una nota sola e la sirena bitonale non funzionerebbe.
+> ⚠️ The buzzer must be **passive**: an active one would play a single note and the two-tone siren would not work.
 
-## Cosa legge dallo Shelly EM
+## What it reads from the Shelly EM
 
-Una `GET http://<shelly>/status` al secondo. I campi usati:
+One `GET http://<shelly>/status` per second. Fields used:
 
-| Campo | Uso |
+| Field | Use |
 |---|---|
-| `emeters[n].power` | W istantanei del canale n |
-| `emeters[n].voltage` | tensione di rete |
-| `emeters[n].pf` | fattore di potenza |
-| `emeters[n].is_valid` | `false` se la pinza non è collegata → il ramo mostra i trattini |
-| `emeters[n].total` | Wh cumulativi → storico kWh |
-| `unixtime` | ora UTC dello Shelly → orologio e calendario |
+| `emeters[n].power` | instantaneous W of channel n |
+| `emeters[n].voltage` | mains voltage |
+| `emeters[n].pf` | power factor |
+| `emeters[n].is_valid` | `false` if the clamp is not connected → the branch shows dashes |
+| `emeters[n].total` | cumulative Wh → kWh history |
+| `unixtime` | Shelly UTC time → clock and calendar |
 
-Il totale è la somma dei canali validi. Il parsing è fatto a mano su poche chiavi: niente ArduinoJson, l'unica libreria esterna è U8g2.
+The total is the sum of the valid channels. Parsing is done by hand on a few keys: no ArduinoJson, the only external library is U8g2.
 
-## Configurazione
+## Configuration
 
-In cima allo sketch, blocco `CONFIGURAZIONE`:
+At the top of the sketch, in the `CONFIGURATION` block:
 
-| `#define` | Contenuto |
+| `#define` | Content |
 |---|---|
-| `WIFI_SSID`, `WIFI_PASSWORD` | rete Wi-Fi (la stessa dello Shelly) |
-| `SHELLY_HOST` | IP dello Shelly EM (meglio riservato nel DHCP del router) |
-| `SHELLY_USER`, `SHELLY_PASS` | vuoti, a meno che sullo Shelly sia attivo *Restrict login* |
-| `CANALE_1`, `CANALE_2` | indice di `emeters[]` del primo e del secondo ramo (0 e 1) |
-| `USA_CANALE_2` | `0` con una sola pinza: al posto del secondo ramo il display mostra la tensione |
-| `NOME_1`, `NOME_2` | nomi dei rami, usati su display e pagina web |
-| `FUSO_ORARIO` | stringa POSIX, già impostata per l'Italia con l'ora legale |
-| `OTA_PASSWORD` | password per l'aggiornamento via rete |
+| `WIFI_SSID`, `WIFI_PASSWORD` | Wi-Fi network (the same as the Shelly) |
+| `SHELLY_HOST` | Shelly EM IP (better reserved in the router's DHCP) |
+| `SHELLY_USER`, `SHELLY_PASS` | empty, unless *Restrict login* is enabled on the Shelly |
+| `CANALE_1`, `CANALE_2` | `emeters[]` index of the first and second branch (0 and 1) |
+| `USA_CANALE_2` | `0` with a single clamp: the display shows the voltage instead of the second branch |
+| `NOME_1`, `NOME_2` | branch names, used on the display and the web page |
+| `FUSO_ORARIO` | POSIX time-zone string, preset for Italy with daylight saving time |
+| `OTA_PASSWORD` | password for network updates |
 
-## Il contenitore da barra DIN
+## The DIN-rail enclosure
 
-Lo stesso della versione con Home Assistant. Norma **DIN 43880**, **4 moduli**: 69,8 × 85 × 45 mm, aggancio a molla per barra DIN 35 mm (EN 50022). Tre pezzi, **nessun supporto di stampa**.
+The same as the Home Assistant version. **DIN 43880** standard, **4 modules**: 69.8 × 85 × 45 mm, spring clip for 35 mm DIN rail (EN 50022). Three parts, **no print supports**.
 
-| Pezzo | Orientamento di stampa |
+| Part | Print orientation |
 |---|---|
-| `fascia.stl` | a faccia in giù |
-| `corpo.stl` | con il fronte in giù |
-| `coperchio.stl` | piano sul letto, clip verso l'alto |
+| `bezel.stl` | face down |
+| `body.stl` | front face down |
+| `lid.stl` | flat on the bed, clips facing up |
 
-Parametri: PLA, 205 °C, piatto 60 °C, layer 0,2 mm, 3 perimetri, riempimento 20%.
+Settings: PLA, 205 °C, bed 60 °C, 0.2 mm layers, 3 perimeters, 20% infill.
 
-![I tre pezzi del contenitore DIN](immagini/case-din-tre-pezzi.png)
+![The three parts of the DIN enclosure](images/din-case-three-parts.png)
 
-Il sorgente parametrico è in `case_3d/supporto_din_display_esp32.scad`.
+The parametric source is `case_3d/din_enclosure_display_esp32.scad`.
 
-![Il contenitore assemblato](immagini/case-din-assemblato.png)
+![The assembled enclosure](images/din-case-assembled.png)
 
-## Contenuto del repository
+## Repository contents
 
-| Percorso | Descrizione |
+| Path | Description |
 |---|---|
-| `monitor_potenza_shelly/monitor_potenza_shelly.ino` | Sketch Arduino (credenziali sostituite da segnaposto) |
-| `case_3d/corpo.stl`, `fascia.stl`, `coperchio.stl` | I tre pezzi da stampare |
-| `case_3d/supporto_din_display_esp32.scad` | Sorgente parametrico OpenSCAD |
-| `immagini/` | Immagini dell'articolo |
+| `shelly_power_monitor/shelly_power_monitor.ino` | Arduino sketch (credentials replaced by placeholders) |
+| `case_3d/body.stl`, `bezel.stl`, `lid.stl` | The three parts to print |
+| `case_3d/din_enclosure_display_esp32.scad` | Parametric OpenSCAD source |
+| `images/` | Images |
 
-## Come si usa
+## How to use it
 
-1. Prova lo Shelly dal PC: `http://IP-DELLO-SHELLY/status` deve restituire il JSON con `emeters`.
-2. Installa la libreria **U8g2** di oliver (olikraus), versione ≥ 2.34, dal Gestore librerie dell'IDE Arduino. Wi-Fi, HTTPClient, WebServer, mDNS, LittleFS e OTA sono già nel core ESP32.
-3. Scheda **ESP32 Dev Module**, Flash 4 MB, Partition Scheme **"Default 4MB with spiffs (1.2MB APP / 1.5MB SPIFFS)"**.
-4. Apri [`monitor_potenza_shelly/monitor_potenza_shelly.ino`](monitor_potenza_shelly/monitor_potenza_shelly.ino) e compila i segnaposto: SSID e password Wi-Fi, IP dello Shelly e **password OTA**.
-5. Primo caricamento via USB. Dai successivi l'ESP32 compare in *Strumenti → Porta* come porta di rete `monitor-potenza-shelly`.
-6. Stampa i tre pezzi, salda i fili, monta e aggancia alla barra DIN.
-7. Apri `http://monitor-potenza-shelly.local` per i grafici e per impostare la soglia di allarme (500–20000 W).
+1. Test the Shelly from your PC: `http://SHELLY-IP/status` must return the JSON with `emeters`.
+2. Install the **U8g2** library by oliver (olikraus), version ≥ 2.34, from the Arduino IDE Library Manager. Wi-Fi, HTTPClient, WebServer, mDNS, LittleFS and OTA are already part of the ESP32 core.
+3. Board **ESP32 Dev Module**, Flash 4 MB, Partition Scheme **"Default 4MB with spiffs (1.2MB APP / 1.5MB SPIFFS)"**.
+4. Open [`shelly_power_monitor/shelly_power_monitor.ino`](shelly_power_monitor/shelly_power_monitor.ino) and fill in the placeholders: Wi-Fi SSID and password, Shelly IP and **OTA password**.
+5. First upload over USB. From then on the ESP32 appears in *Tools → Port* as the network port `shelly-power-monitor`.
+6. Print the three parts, solder the wires, assemble and clip it onto the DIN rail.
+7. Open `http://shelly-power-monitor.local` for the charts and to set the alarm threshold (500–20000 W).
 
-Compilato con core ESP32 **3.3.12** (il codice gestisce anche i core 2.x).
+Compiled with ESP32 core **3.3.12** (the code also supports 2.x cores).
 
-Montaggio passo passo, dettagli e risoluzione dei problemi: **[articolo su www.emgi.it](https://www.emgi.it/2026/10/13/monitor-consumi-barra-din-esp32-shelly-em-senza-home-assistant/)**.
+Step-by-step assembly, details and troubleshooting: **[article on www.emgi.it](https://www.emgi.it/2026/10/13/monitor-consumi-barra-din-esp32-shelly-em-senza-home-assistant/)** (in Italian).
 
-## Licenza
+## License
 
-- Codice e configurazioni: [MIT](LICENSE)
-- Modelli 3D, schemi e immagini: [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.it)
+- Code and configuration: [MIT](LICENSE)
+- 3D models, diagrams and images: [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ---
 
-**Autore:** Massimiliano Sandrin – **[eMGi.it](https://www.emgi.it)** · Domande e commenti sotto l'[articolo sul sito](https://www.emgi.it/2026/10/13/monitor-consumi-barra-din-esp32-shelly-em-senza-home-assistant/).
+**Author:** Massimiliano Sandrin – **[eMGi.it](https://www.emgi.it)** · Questions and comments below the [article on the website](https://www.emgi.it/2026/10/13/monitor-consumi-barra-din-esp32-shelly-em-senza-home-assistant/).
